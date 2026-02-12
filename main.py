@@ -9,6 +9,7 @@ from sklearn.metrics import mean_squared_error, accuracy_score
 from sklearn.ensemble import IsolationForest
 from sklearn.svm import OneClassSVM
 from sklearn.neighbors import LocalOutlierFactor
+from sklearn.ensemble import RandomForestClassifier
 
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
@@ -20,6 +21,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from sklearn.decomposition import PCA
 from collections import Counter
+from sklearn.metrics import classification_report, confusion_matrix
 
 df = pd.read_csv("customer_booking.csv", encoding="ISO-8859-1")
 
@@ -70,3 +72,17 @@ for i, col in enumerate(subset_df.columns):
 
 plt.tight_layout()
 plt.show()
+
+#now training sci-kit learn if it can detect attacked and not
+X = attacked_df.values.flatten().reshape(-1, 1)
+y = attacked_mask.values.flatten().astype(int)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf.fit(X_train, y_train)
+
+y_pred = clf.predict(X_test)
+
+print("Classification Report:\n", classification_report(y_test, y_pred))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
