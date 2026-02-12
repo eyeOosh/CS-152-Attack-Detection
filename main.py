@@ -88,7 +88,9 @@ for i, col in enumerate(subset_df.columns):
     axes[i].grid(True)
 
 plt.tight_layout()
-plt.show()
+
+# NOTICE! This code below should be uncommented to see the graph! Commented for now to make the training models the main focus
+#plt.show()
 
 #now training sci-kit learn if it can detect attacked and not
 X = attacked_df.values.flatten().reshape(-1, 1)
@@ -101,6 +103,7 @@ clf.fit(X_train, y_train)
 
 y_pred = clf.predict(X_test)
 
+print("\n------Training RamdomForest model to detect attacked, knowing which points are attacked or not------")
 print("Classification Report:\n", classification_report(y_test, y_pred))
 
 # This returns in the format
@@ -109,3 +112,43 @@ print("Classification Report:\n", classification_report(y_test, y_pred))
 # where TN = true negative, FN = false negative
 #       FP = false positive, TP = true positive
 print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+
+print("\n------Training model with 20 percent contanimation rate, not knowing which points are attacked------")
+#now training IsolationForest as unsupervised model
+X_attacked = attacked_df.values
+
+#telling it that it has 20% contamination
+clf = IsolationForest(contamination=0.2, random_state=SEED)
+clf.fit(X_attacked)
+
+# it predicts how many points are attacked
+y_pred = clf.predict(X_attacked)
+
+#plot the attacked points
+attacked_df_flags = attacked_df.copy()
+attacked_df_flags['is_outlier'] = y_pred
+
+plt.scatter(range(len(X_attacked)), X_attacked[:, 0], c=['red' if i==-1 else 'blue' for i in y_pred])
+plt.xlabel("Data point index")
+plt.ylabel("Value (first column)")
+plt.title("Isolation Forest Attack Detection")
+#plt.show()
+
+#attack detection with UNKNOWN contanimation rate
+clf2 = IsolationForest(random_state=SEED)
+clf2.fit(X_attacked)
+
+y_pred2 = clf2.predict(X_attacked)  # 1 = normal, -1 = outlier
+
+num_outliers2 = np.sum(y_pred2 == -1)
+num_normal2 = np.sum(y_pred2 == 1)
+
+print("\n------Training model with UNKNOWN contanimation rate, not knowing which points are attacked------")
+print(f"Number of points flagged as attacked/outliers: {num_outliers2}")
+print(f"Number of points flagged as normal: {num_normal2}")
+
+attacked_df_flags2 = attacked_df.copy()
+attacked_df_flags2['is_outlier'] = y_pred2
+
+outlier_percentage2 = num_outliers2 / len(y_pred2) * 100
+print(f"Outliers make up {outlier_percentage2:.2f}% of the dataset")
