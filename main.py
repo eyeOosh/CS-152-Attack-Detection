@@ -132,7 +132,8 @@ plt.scatter(range(len(X_attacked)), X_attacked[:, 0], c=['red' if i==-1 else 'bl
 plt.xlabel("Data point index")
 plt.ylabel("Value (first column)")
 plt.title("Isolation Forest Attack Detection")
-#plt.show()
+# same as IsolationForestPrediction.png
+plt.show()
 
 #attack detection with UNKNOWN contanimation rate
 clf2 = IsolationForest(random_state=SEED)
