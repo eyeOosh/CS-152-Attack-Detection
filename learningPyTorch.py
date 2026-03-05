@@ -126,10 +126,3 @@ newModel.load_state_dict(torch.load("model.pt"))
 print(newModel.eval()) # set the model to evaluation mode
 
 plt.show()
-
-from torchviz import make_dot
-
-output = model(newIris)
-
-dot = make_dot(output, params=dict(model.named_parameters()))
-dot.render("model_visualization", format="png")
