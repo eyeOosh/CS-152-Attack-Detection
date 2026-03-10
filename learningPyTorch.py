@@ -114,9 +114,10 @@ with torch.no_grad():
 print(f"\nCorrect: {correct} out of {len(X_test)} \t Accuracy: {correct/len(X_test)*100:.2f}%")
 
 newIris = torch.tensor([4.7, 3.2, 1.3, 0.2]) # this is a setosa
-
+print("\nNew Iris prediction (4.7, 3.2, 1.3, 0.2):")
 with torch.no_grad():
     print("\n" + str(model(newIris)))
+print("tensor ([setosa, versicolor, virginica])\n")
 
 torch.save(model.state_dict(), "model.pt")
 
