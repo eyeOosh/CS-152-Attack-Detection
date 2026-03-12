@@ -29,6 +29,56 @@ class Model(nn.Module):
     
     torch.manual_seed(42)
 
+#  poison_dataset
+#
+#  Poison parameters:
+#    "feature_noise"       - adds Gaussian noise to feature values
+#    "label_flip"          - randomly flips labels to a wrong class
+#    "label_flip_targeted" - forces samples to one specific target class
+#    "combined"            - feature noise + label flip together
+#
+#  Returns:
+#    X_poisoned  : corrupted feature matrix 
+#    y_poisoned  : corrupted labels 
+#    poison_mask : True where a sample was poisoned
+
+def poison_dataset(X, y, poison_fraction=0.2, strategy="feature_noise",
+                   noise_std=0.5, target_class=None, seed=42):
+
+    rng = np.random.default_rng(seed)
+    X_poisoned = X.copy().astype(float)
+    y_poisoned = y.copy()
+
+    n_samples      = len(X_poisoned)
+    n_poison       = int(n_samples * poison_fraction)
+    poison_indices = rng.choice(n_samples, size=n_poison, replace=False)
+
+    poison_mask = np.zeros(n_samples, dtype=bool)
+    poison_mask[poison_indices] = True
+
+    if strategy in ("feature_noise", "combined"):
+        noise = rng.normal(loc=0, scale=noise_std, size=X_poisoned[poison_indices].shape)
+        X_poisoned[poison_indices] += noise
+
+    if strategy in ("label_flip", "combined"):
+        num_classes = len(np.unique(y_poisoned))
+        for idx in poison_indices:
+            original = y_poisoned[idx]
+            choices  = [c for c in range(num_classes) if c != original]
+            y_poisoned[idx] = rng.choice(choices)
+
+    elif strategy == "label_flip_targeted":
+        if target_class is None:
+            raise ValueError("target_class must be set for label_flip_targeted.")
+        for idx in poison_indices:
+            if y_poisoned[idx] != target_class:
+                y_poisoned[idx] = target_class
+
+    print(f"[poison_dataset] strategy='{strategy}' | "
+          f"poisoned {n_poison}/{n_samples} samples ({poison_fraction * 100:.0f}%)")
+
+    return X_poisoned, y_poisoned, poison_mask
+
 
 model = Model()
 
@@ -46,11 +96,14 @@ from sklearn.model_selection import train_test_split
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+#poison the data
+X_train, y_train, poison_mask = poison_dataset(X_train.values, y_train.values, poison_fraction=0.2, strategy="label_flip")
+
 # Convert the data to PyTorch tensors
-X_train = torch.FloatTensor(X_train.values)
+X_train = torch.FloatTensor(X_train)
 X_test = torch.FloatTensor(X_test.values)
 # convert the labels to LongTensor for classification
-y_train = torch.LongTensor(y_train.values)
+y_train = torch.LongTensor(y_train)
 y_test = torch.LongTensor(y_test.values)
 
 #time to set model criterion to mearsure error of prediction vs reality
