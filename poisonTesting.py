@@ -8,6 +8,8 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
+show_plots = False
+
 # Create a model class that inherits from nn.Module
 class Model(nn.Module):
     # input layer
@@ -29,6 +31,7 @@ class Model(nn.Module):
     
     torch.manual_seed(42)
 
+
 #  poison_dataset
 #
 #  Poison parameters:
@@ -42,8 +45,8 @@ class Model(nn.Module):
 #    y_poisoned  : corrupted labels 
 #    poison_mask : True where a sample was poisoned
 
-def poison_dataset(X, y, poison_fraction=0.2, strategy="feature_noise",
-                   noise_std=0.5, target_class=None, seed=42):
+def poison_dataset(X, y, poison_fraction=0.3, strategy="feature_noise",
+                   noise_std=15.0, target_class=None, seed=42):
 
     rng = np.random.default_rng(seed)
     X_poisoned = X.copy().astype(float)
@@ -56,9 +59,16 @@ def poison_dataset(X, y, poison_fraction=0.2, strategy="feature_noise",
     poison_mask = np.zeros(n_samples, dtype=bool)
     poison_mask[poison_indices] = True
 
+    if strategy in ("robust_noise"):
+        noise = rng.normal(loc=0, scale=0.5, size=X_poisoned[poison_indices].shape)
+        X_poisoned[poison_indices] += noise
+
     if strategy in ("feature_noise", "combined"):
         noise = rng.normal(loc=0, scale=noise_std, size=X_poisoned[poison_indices].shape)
         X_poisoned[poison_indices] += noise
+
+    if strategy in ("zero_out", "combined"):
+        X_poisoned[poison_indices] = 0.0
 
     if strategy in ("label_flip", "combined"):
         num_classes = len(np.unique(y_poisoned))
@@ -82,7 +92,7 @@ def poison_dataset(X, y, poison_fraction=0.2, strategy="feature_noise",
 
 model = Model()
 
-df = pd.read_csv("iris.data", encoding="ISO-8859-1")
+df = pd.read_csv("data/iris.data", encoding="ISO-8859-1")
 
 df['variety'] = df['variety'].map({'Iris-setosa': 0, 'Iris-versicolor': 1, 'Iris-virginica': 2})
 df['variety'] = df['variety'].astype(int)
@@ -96,8 +106,14 @@ from sklearn.model_selection import train_test_split
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+############################################################################################
+# Options: "label_flip", "feature_noise", "combined", "label_flip_targeted", "robust_noise", "zero_out"
+current_strategy = "robust_noise"
+current_fraction = 0.7
+############################################################################################
+
 #poison the data
-X_train, y_train, poison_mask = poison_dataset(X_train.values, y_train.values, poison_fraction=0.2, strategy="label_flip")
+X_train, y_train, poison_mask = poison_dataset(X_train.values, y_train.values, poison_fraction=current_fraction, strategy=current_strategy, seed=42)
 
 # Convert the data to PyTorch tensors
 X_train = torch.FloatTensor(X_train)
@@ -172,11 +188,23 @@ with torch.no_grad():
     print("\n" + str(model(newIris)))
 print("tensor ([setosa, versicolor, virginica])\n")
 
-torch.save(model.state_dict(), "modelPoisoned.pt")
+filename_map = {
+    "feature_noise": "poisonedFeatureNoise.pt",
+    "label_flip": "poisonedLabelFlip.pt",
+    "label_flip_targeted": "poisonedTargetedFlip.pt",
+    "combined": "poisonedCombined.pt",
+    "robust_noise": "goodRobustNoise.pt",
+    "zero_out": "poisonedZeroOut.pt"
+}
+
+torch.save(model.state_dict(), f"models/{filename_map.get(current_strategy, 'poisonedDefault.pt')}")
+print(f"\n{'='*40}")
+print(f"Model saved as: models/{filename_map.get(current_strategy, 'poisonedDefault.pt')}\n")
 
 newModel = Model()
-newModel.load_state_dict(torch.load("modelPoisoned.pt"))
+#newModel.load_state_dict(torch.load("poisonedFeatureNoise.pt"))
 
 print(newModel.eval()) # set the model to evaluation mode
 
-plt.show()
+if show_plots:
+    plt.show()

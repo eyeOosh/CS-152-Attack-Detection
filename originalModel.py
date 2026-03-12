@@ -8,6 +8,8 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
+show_plots = False
+
 # Create a model class that inherits from nn.Module
 class Model(nn.Module):
     # input layer
@@ -29,10 +31,9 @@ class Model(nn.Module):
     
     torch.manual_seed(42)
 
-
 model = Model()
 
-df = pd.read_csv("iris.data", encoding="ISO-8859-1")
+df = pd.read_csv("data/iris.data", encoding="ISO-8859-1")
 
 df['variety'] = df['variety'].map({'Iris-setosa': 0, 'Iris-versicolor': 1, 'Iris-virginica': 2})
 df['variety'] = df['variety'].astype(int)
@@ -119,11 +120,12 @@ with torch.no_grad():
     print("\n" + str(model(newIris)))
 print("tensor ([setosa, versicolor, virginica])\n")
 
-torch.save(model.state_dict(), "originalModel.pt")
+torch.save(model.state_dict(), "models/originalModel.pt")
 
 newModel = Model()
-newModel.load_state_dict(torch.load("originalModel.pt"))
+#newModel.load_state_dict(torch.load("originalModel.pt"))
 
 print(newModel.eval()) # set the model to evaluation mode
 
-plt.show()
+if show_plots:
+    plt.show()
