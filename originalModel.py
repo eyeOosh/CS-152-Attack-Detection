@@ -119,10 +119,10 @@ with torch.no_grad():
     print("\n" + str(model(newIris)))
 print("tensor ([setosa, versicolor, virginica])\n")
 
-torch.save(model.state_dict(), "model.pt")
+torch.save(model.state_dict(), "originalModel.pt")
 
 newModel = Model()
-newModel.load_state_dict(torch.load("model.pt"))
+newModel.load_state_dict(torch.load("originalModel.pt"))
 
 print(newModel.eval()) # set the model to evaluation mode
 
