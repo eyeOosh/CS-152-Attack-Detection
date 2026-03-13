@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
+import detectAttackType as dat
 
 show_plots = False
 
@@ -108,7 +109,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 ############################################################################################
 # Options: "label_flip", "feature_noise", "combined", "label_flip_targeted", "robust_noise", "zero_out"
-current_strategy = "robust_noise"
+current_strategy = "label_flip"
 current_fraction = 0.7
 ############################################################################################
 
@@ -201,10 +202,23 @@ torch.save(model.state_dict(), f"models/{filename_map.get(current_strategy, 'poi
 print(f"\n{'='*40}")
 print(f"Model saved as: models/{filename_map.get(current_strategy, 'poisonedDefault.pt')}\n")
 
-newModel = Model()
-#newModel.load_state_dict(torch.load("poisonedFeatureNoise.pt"))
+datafile_map = {
+    "feature_noise": "poisonedFeatureNoiseData.csv",
+    "label_flip": "poisonedLabelFlipData.csv",
+    "label_flip_targeted": "poisonedTargetedFlipData.csv",
+    "combined": "poisonedCombinedData.csv",
+    "robust_noise": "goodRobustNoiseData.csv",
+    "zero_out": "poisonedZeroOutData.csv"
+}
 
-print(newModel.eval()) # set the model to evaluation mode
+df_poisoned = pd.DataFrame(X_train.numpy(), columns=['sepal_length', 'sepal_width', 'petal_length', 'petal_width'])
+df_poisoned['variety'] = y_train.numpy()
+
+data_save_name = datafile_map.get(current_strategy, 'poisonedDefaultData.csv')
+df_poisoned.to_csv(f"data/{data_save_name}", index=False)
+
+print(f"Data saved as:  data/{data_save_name}")
+print(f"{'='*40}\n")
 
 if show_plots:
     plt.show()
