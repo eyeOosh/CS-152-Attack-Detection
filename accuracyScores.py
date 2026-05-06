@@ -137,28 +137,23 @@ printBorder()
 print("This is the adversarially trained model (FGSM), trained against adversarial FGSM examples, evaluated on adversarial FGSM data:")
 evaluate_model("FGSM-TrainedMODEL (Under FGSM Attack)", model_FGSM, X_eval_adversarial, y_eval)
 
-plt.figure(figsize=(12, 8)) # Make the figure large enough to read the labels
+plt.figure(figsize=(12, 8))
 
 # Create a horizontal bar chart
-# We reverse the lists [::-1] so the first model evaluated shows up at the top
 bars = plt.barh(plot_model_names[::-1], plot_accuracies[::-1], color='skyblue', edgecolor='black')
 
 plt.xlabel('Accuracy (%)', fontsize=12, fontweight='bold')
 plt.title('Model Accuracy Comparison: Clean vs. Poisoned vs. Under Attack', fontsize=14, fontweight='bold')
-plt.xlim(0, 105) # Set x-axis limit slightly above 100 for visual padding
+plt.xlim(0, 105)
 
-# Add the exact percentage text onto each bar
 for bar in bars:
     width = bar.get_width()
-    # Place the text slightly to the left of the end of the bar (or right if it's super small)
     label_x_pos = width - 6 if width > 10 else width + 1
     plt.text(label_x_pos, bar.get_y() + bar.get_height()/2, 
              f'{width:.2f}%', 
              va='center', ha='left' if width <= 10 else 'right', 
              color='black', weight='bold', fontsize=10)
 
-# Adjust layout so the long model names don't get cut off
 plt.tight_layout()
 
-# Show the plot!
 plt.show()
