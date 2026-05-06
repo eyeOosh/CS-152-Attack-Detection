@@ -8,7 +8,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
-show_plots = False
+show_plots = True
 
 # Create a model class that inherits from nn.Module
 class Model(nn.Module):

@@ -47,7 +47,8 @@ class Model(nn.Module):
 #    poison_mask : True where a sample was poisoned
 
 def poison_dataset(X, y, poison_fraction=0.3, strategy="feature_noise",
-                   noise_std=15.0, target_class=None, seed=42):
+                   noise_std=15.0, target_class=None, seed=42,
+                   data_grad=None, epsilon=0.5):
 
     rng = np.random.default_rng(seed)
     X_poisoned = X.copy().astype(float)
@@ -85,11 +86,20 @@ def poison_dataset(X, y, poison_fraction=0.3, strategy="feature_noise",
             if y_poisoned[idx] != target_class:
                 y_poisoned[idx] = target_class
 
+    elif strategy == "FGSM":
+        if data_grad is None:
+            raise ValueError("data_grad must be provided for the FGSM strategy.")
+        
+        # Convert PyTorch tensor to NumPy array if necessary
+        grad_array = data_grad.numpy() if hasattr(data_grad, 'numpy') else data_grad
+        
+        # Apply FGSM perturbation: X_adv = X + epsilon * sign(gradient)
+        X_poisoned[poison_indices] += epsilon * np.sign(grad_array[poison_indices])
+
     print(f"[poison_dataset] strategy='{strategy}' | "
           f"poisoned {n_poison}/{n_samples} samples ({poison_fraction * 100:.0f}%)")
 
     return X_poisoned, y_poisoned, poison_mask
-
 
 model = Model()
 
@@ -109,12 +119,59 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 ############################################################################################
 # Options: "label_flip", "feature_noise", "combined", "label_flip_targeted", "robust_noise", "zero_out"
-current_strategy = "label_flip"
-current_fraction = 0.7
+strat = input("Enter poison strategy: \n1 = feature_noise\n2 = label_flip\n3 = robust_noise\n4 = zero_out\n5=FGSM\n")
+if strat == "1":
+    current_strategy = "feature_noise"
+elif strat == "2":
+    current_strategy = "label_flip"
+elif strat == "3":
+    current_strategy = "robust_noise"
+elif strat == "4":
+    current_strategy = "zero_out"
+elif strat == "5":
+    current_strategy = "FGSM"
+else:
+    print("Invalid input, defaulting to feature_noise.")
+    current_strategy = "feature_noise"
+
+current_fraction = 0.3
 ############################################################################################
 
-#poison the data
-X_train, y_train, poison_mask = poison_dataset(X_train.values, y_train.values, poison_fraction=current_fraction, strategy=current_strategy, seed=42)
+if current_strategy == "FGSM":
+    # 1. Prepare data
+    X_train_t = torch.FloatTensor(X_train.values)
+    y_train_t = torch.LongTensor(y_train.values)
+    X_train_t.requires_grad = True
+
+    # 2. Load clean model
+    proxy_model = Model()
+    proxy_model.load_state_dict(torch.load("models/originalModel.pt"))
+    proxy_model.eval()
+
+    # 3. Calculate gradients
+    proxy_criterion = nn.CrossEntropyLoss()
+    out = proxy_model(X_train_t)
+    loss = proxy_criterion(out, y_train_t)
+    
+    proxy_model.zero_grad()
+    loss.backward()
+
+    # Extract the gradient data
+    gradients = X_train_t.grad.data
+
+    # 4. Call the updated poison function
+    X_train, y_train, poison_mask = poison_dataset(
+        X_train.values, 
+        y_train.values, 
+        poison_fraction=current_fraction, 
+        strategy=current_strategy, 
+        seed=42,
+        data_grad=gradients,  # Pass gradients here
+        epsilon=0.5           # Set perturbation strength
+    )
+else:
+    #poison the data
+    X_train, y_train, poison_mask = poison_dataset(X_train.values, y_train.values, poison_fraction=current_fraction, strategy=current_strategy, seed=42)
 
 # Convert the data to PyTorch tensors
 X_train = torch.FloatTensor(X_train)
@@ -195,7 +252,8 @@ filename_map = {
     "label_flip_targeted": "poisonedTargetedFlip.pt",
     "combined": "poisonedCombined.pt",
     "robust_noise": "goodRobustNoise.pt",
-    "zero_out": "poisonedZeroOut.pt"
+    "zero_out": "poisonedZeroOut.pt",
+    "FGSM": "poisonedFGSM.pt"
 }
 
 torch.save(model.state_dict(), f"models/{filename_map.get(current_strategy, 'poisonedDefault.pt')}")
@@ -208,7 +266,8 @@ datafile_map = {
     "label_flip_targeted": "poisonedTargetedFlipData.csv",
     "combined": "poisonedCombinedData.csv",
     "robust_noise": "goodRobustNoiseData.csv",
-    "zero_out": "poisonedZeroOutData.csv"
+    "zero_out": "poisonedZeroOutData.csv",
+    "FGSM": "poisonedFGSMData.csv"
 }
 
 df_poisoned = pd.DataFrame(X_train.numpy(), columns=['sepal_length', 'sepal_width', 'petal_length', 'petal_width'])
